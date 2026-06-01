@@ -4,12 +4,23 @@
 - 读取 input 文件夹中的所有图片
 - 生成反色图片到 output 文件夹（文件名添加 _converted 后缀）
 - 将原图片移动到 complete 文件夹
+
+用法:
+    python main.py                              # 使用默认路径
+    python main.py -i ./images -o ./results     # 自定义输入/输出目录
+    python main.py -k                           # 保留原文件，不移动到 complete
+    python main.py -s _inverted                 # 自定义输出后缀
+    python main.py -r                           # 递归处理子文件夹
 """
 
 import os
 import shutil
+import argparse
+from datetime import datetime
 from pathlib import Path
+
 from PIL import Image, ImageOps
+from tqdm import tqdm
 
 # 支持的图片扩展名（不区分大小写）
 SUPPORTED_EXT = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp'}
@@ -46,65 +57,143 @@ def safe_move(src, dst_dir):
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         new_name = f"{stem}_{timestamp}{suffix}"
         dst_path = dst_path.parent / new_name
-        print(f"目标文件已存在，将重命名为: {new_name}")
+        tqdm.write(f"目标文件已存在，将重命名为: {new_name}")
     shutil.move(str(src), str(dst_path))
-    print(f"已移动: {src} -> {dst_path}")
+    tqdm.write(f"已移动: {src} -> {dst_path}")
 
 
-def process_batch():
-    # 定义文件夹路径（相对于脚本所在目录）
-    base_dir = Path(__file__).parent
-    input_dir = base_dir / "input"
-    output_dir = base_dir / "output"
-    complete_dir = base_dir / "complete"
+def process_batch(input_dir, output_dir, complete_dir, suffix, keep_original, recursive):
+    """
+    批量处理图片反色。
+
+    参数:
+        input_dir:     输入文件夹路径
+        output_dir:    输出文件夹路径
+        complete_dir:  已完成文件夹路径（keep_original=False 时使用）
+        suffix:        输出文件名后缀（默认 "_converted"）
+        keep_original: 是否保留原文件（True=不移动）
+        recursive:     是否递归处理子文件夹
+    """
+    input_path = Path(input_dir)
+    output_path = Path(output_dir)
+    complete_path = Path(complete_dir)
 
     # 确保文件夹存在
-    input_dir.mkdir(exist_ok=True)
-    output_dir.mkdir(exist_ok=True)
-    complete_dir.mkdir(exist_ok=True)
+    input_path.mkdir(exist_ok=True)
+    output_path.mkdir(exist_ok=True)
+    if not keep_original:
+        complete_path.mkdir(exist_ok=True)
 
-    # 获取 input 文件夹中的所有文件
-    files = [f for f in input_dir.iterdir() if f.is_file() and f.suffix.lower() in SUPPORTED_EXT]
+    # 获取图片文件列表
+    if recursive:
+        files = [f for f in input_path.rglob("*") if f.is_file() and f.suffix.lower() in SUPPORTED_EXT]
+    else:
+        files = [f for f in input_path.iterdir() if f.is_file() and f.suffix.lower() in SUPPORTED_EXT]
 
     if not files:
-        print("input 文件夹中没有找到支持的图片文件。")
+        print(f"在 {input_path} 中没有找到支持的图片文件。")
         return
 
-    print(f"找到 {len(files)} 个图片文件，开始处理...")
+    print(f"找到 {len(files)} 个图片文件，开始处理...\n")
 
-    for input_path in files:
+    success_count = 0
+    fail_count = 0
+
+    for input_file in tqdm(files, desc="处理进度", unit="张"):
         try:
+            # 计算输出路径（递归模式下保持相对目录结构）
+            if recursive:
+                rel_path = input_file.relative_to(input_path)
+                out_file = output_path / rel_path.parent / f"{rel_path.stem}{suffix}{rel_path.suffix}"
+            else:
+                out_file = output_path / f"{input_file.stem}{suffix}{input_file.suffix}"
+
+            # 确保输出目录的父文件夹存在（递归模式可能需要）
+            out_file.parent.mkdir(parents=True, exist_ok=True)
+
             # 1. 读取原图
-            img = Image.open(input_path)
-            print(f"正在处理: {input_path.name}")
+            img = Image.open(input_file)
 
             # 2. 反色
             inverted = invert_image(img)
 
-            # 3. 构造输出文件名（添加 _converted 后缀）
-            stem = input_path.stem
-            suffix = input_path.suffix
-            output_name = f"{stem}_converted{suffix}"
-            output_path = output_dir / output_name
+            # 3. 保存反色图片
+            inverted.save(out_file)
 
-            # 4. 保存反色图片
-            inverted.save(output_path)
-            print(f"  反色保存: {output_path}")
-
-            # 5. 关闭图片（释放资源）
+            # 4. 关闭图片（释放资源）
             img.close()
             inverted.close()
 
-            # 6. 移动原文件到 complete 文件夹
-            safe_move(input_path, complete_dir)
+            # 5. 移动原文件到 complete 文件夹
+            if keep_original:
+                tqdm.write(f"✓ {input_file.name} -> {out_file}")
+            else:
+                safe_move(str(input_file), complete_path)
+                tqdm.write(f"✓ {input_file.name} -> {out_file}")
+
+            success_count += 1
 
         except Exception as e:
-            print(f"处理文件 {input_path.name} 时出错: {e}")
+            tqdm.write(f"✗ 处理 {input_file.name} 时出错: {e}")
+            fail_count += 1
             continue
 
-    print("所有任务处理完毕。")
+    print(f"\n处理完毕。成功: {success_count}, 失败: {fail_count}")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="图片反色批处理工具 — 将指定文件夹中的图片反色后输出。",
+    )
+    parser.add_argument(
+        "-i", "--input-dir",
+        default="input",
+        help="输入文件夹路径（默认: input）",
+    )
+    parser.add_argument(
+        "-o", "--output-dir",
+        default="output",
+        help="输出文件夹路径（默认: output）",
+    )
+    parser.add_argument(
+        "-c", "--complete-dir",
+        default="complete",
+        help="存放已处理原图的文件夹路径（默认: complete）",
+    )
+    parser.add_argument(
+        "-s", "--suffix",
+        default="_converted",
+        help="输出文件名后缀（默认: _converted）",
+    )
+    parser.add_argument(
+        "-k", "--keep-original",
+        action="store_true",
+        help="保留原文件，不移动到 complete 文件夹",
+    )
+    parser.add_argument(
+        "-r", "--recursive",
+        action="store_true",
+        help="递归处理子文件夹，输出时保持目录结构",
+    )
+
+    args = parser.parse_args()
+
+    # 将相对路径转为相对于脚本所在目录的绝对路径
+    base_dir = Path(__file__).parent.resolve()
+
+    input_dir = (base_dir / args.input_dir).resolve()
+    output_dir = (base_dir / args.output_dir).resolve()
+    complete_dir = (base_dir / args.complete_dir).resolve()
+
+    process_batch(
+        input_dir=input_dir,
+        output_dir=output_dir,
+        complete_dir=complete_dir,
+        suffix=args.suffix,
+        keep_original=args.keep_original,
+        recursive=args.recursive,
+    )
 
 
 if __name__ == "__main__":
-    from datetime import datetime
-    process_batch()
+    main()
