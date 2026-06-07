@@ -2,13 +2,14 @@
 CLI 入口 — 批量图片反色处理。
 
 用法:
-    python -m picinvert                         # 使用默认路径
-    python -m picinvert -i ./images -o ./results  # 自定义输入/输出目录
-    picinvert -k                                # 作为已安装命令使用
+    python -m picinvert                              # 使用默认路径（传统模式）
+    python -m picinvert -i ./images -o ./results     # 自定义输入/输出目录（传统模式）
+    python -m picinvert -k                           # 保留原文件（传统模式）
+    picinvert -f ./my_images                         # 文件夹内原地反色（新模式）
+    picinvert -f ./my_images -s _converted -r        # 递归 + 自定义后缀
 """
 
 import argparse
-import os
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -16,10 +17,7 @@ from pathlib import Path
 from PIL import Image
 from tqdm import tqdm
 
-from picinvert._core import _invert_image
-
-# 支持的图片扩展名（不区分大小写）
-SUPPORTED_EXT = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tiff', '.webp'}
+from picinvert._core import _invert_image, batch_invert, SUPPORTED_EXT
 
 
 def _safe_move(src, dst_dir):
@@ -106,15 +104,15 @@ def process_batch(input_dir, output_dir, complete_dir, suffix, keep_original,
 
             # 5. 移动原文件到 complete 文件夹
             if keep_original:
-                tqdm.write(f"✓ {input_file.name} -> {out_file}")
+                tqdm.write(f"[OK] {input_file.name} -> {out_file}")
             else:
                 _safe_move(str(input_file), complete_path)
-                tqdm.write(f"✓ {input_file.name} -> {out_file}")
+                tqdm.write(f"[OK] {input_file.name} -> {out_file}")
 
             success_count += 1
 
         except Exception as e:
-            tqdm.write(f"✗ 处理 {input_file.name} 时出错: {e}")
+            tqdm.write(f"[FAIL] {input_file.name}: {e}")
             fail_count += 1
             continue
 
@@ -126,19 +124,9 @@ def main():
         description="图片反色批处理工具 — 将指定文件夹中的图片反色后输出。",
     )
     parser.add_argument(
-        "-i", "--input-dir",
-        default="input",
-        help="输入文件夹路径（默认: input）",
-    )
-    parser.add_argument(
-        "-o", "--output-dir",
-        default="output",
-        help="输出文件夹路径（默认: output）",
-    )
-    parser.add_argument(
-        "-c", "--complete-dir",
-        default="complete",
-        help="存放已处理原图的文件夹路径（默认: complete）",
+        "-f", "--folder",
+        default=None,
+        help="文件夹路径：扫描文件夹下所有图片并在同目录下生成反色图片（原地模式）",
     )
     parser.add_argument(
         "-s", "--suffix",
@@ -146,19 +134,53 @@ def main():
         help="输出文件名后缀（默认: _converted）",
     )
     parser.add_argument(
-        "-k", "--keep-original",
-        action="store_true",
-        help="保留原文件，不移动到 complete 文件夹",
-    )
-    parser.add_argument(
         "-r", "--recursive",
         action="store_true",
-        help="递归处理子文件夹，输出时保持目录结构",
+        help="递归处理子文件夹",
+    )
+
+    # --folder 模式下不需要的参数（仅传统模式使用）
+    parser.add_argument(
+        "-i", "--input-dir",
+        default="input",
+        help="输入文件夹路径（传统模式，默认: input）",
+    )
+    parser.add_argument(
+        "-o", "--output-dir",
+        default="output",
+        help="输出文件夹路径（传统模式，默认: output）",
+    )
+    parser.add_argument(
+        "-c", "--complete-dir",
+        default="complete",
+        help="存放已处理原图的文件夹路径（传统模式，默认: complete）",
+    )
+    parser.add_argument(
+        "-k", "--keep-original",
+        action="store_true",
+        help="保留原文件，不移动到 complete 文件夹（传统模式）",
     )
 
     args = parser.parse_args()
 
-    # 将相对路径转为相对于包所在目录的绝对路径
+    # --- 原地模式（--folder）---
+    if args.folder is not None:
+        folder_path = Path(args.folder).resolve()
+        print(f"原地模式: 扫描 {folder_path}")
+        print(f"后缀: {args.suffix}, 递归: {args.recursive}\n")
+
+        results = batch_invert(
+            folder=folder_path,
+            suffix=args.suffix,
+            recursive=args.recursive,
+        )
+        if results:
+            print(f"\n处理完毕。成功生成 {len(results)} 个反色图片。")
+        else:
+            print(f"\n未找到需要处理的图片文件。")
+        return
+
+    # --- 传统模式（input → output / complete）---
     base_dir = Path(__file__).parent.parent.resolve()
 
     input_dir = (base_dir / args.input_dir).resolve()
