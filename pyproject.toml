@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=64.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "picinvert"
+version = "0.1.0"
+description = "图片反色处理工具 — 提供 invert() 函数和批量处理 CLI"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [
+    { name = "llql1211" },
+]
+keywords = ["image", "invert", "color", "pillow"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics",
+]
+
+dependencies = [
+    "Pillow>=10.0.0",
+    "tqdm>=4.66.0",
+]
+
+[project.scripts]
+picinvert = "picinvert._cli:main"
+
+[tool.setuptools.packages.find]
+include = ["picinvert*"]
