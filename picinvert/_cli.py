@@ -37,7 +37,7 @@ def _safe_move(src, dst_dir):
 
 
 def process_batch(input_dir, output_dir, complete_dir, suffix, keep_original,
-                  recursive):
+                  recursive, invert_mode):
     """
     批量处理图片反色。
 
@@ -48,6 +48,7 @@ def process_batch(input_dir, output_dir, complete_dir, suffix, keep_original,
         suffix:        输出文件名后缀（默认 "_converted"）
         keep_original: 是否保留原文件（True=不移动）
         recursive:     是否递归处理子文件夹
+        invert_mode:   反色模式（"standard"、"hsv" 或 "black-white"）
     """
     input_path = Path(input_dir)
     output_path = Path(output_dir)
@@ -93,7 +94,7 @@ def process_batch(input_dir, output_dir, complete_dir, suffix, keep_original,
             img = Image.open(input_file)
 
             # 2. 反色
-            inverted = _invert_image(img)
+            inverted = _invert_image(img, invert_mode=invert_mode)
 
             # 3. 保存反色图片
             inverted.save(out_file)
@@ -160,6 +161,12 @@ def main():
         action="store_true",
         help="保留原文件，不移动到 complete 文件夹（传统模式）",
     )
+    parser.add_argument(
+        "-m", "--mode",
+        default="hsv",
+        choices=["standard", "hsv", "black-white"],
+        help="反色模式: standard=标准RGB反色, hsv=HSV反转明度, black-white=仅反色黑白灰（默认: hsv）",
+    )
 
     args = parser.parse_args()
 
@@ -173,6 +180,7 @@ def main():
             folder=folder_path,
             suffix=args.suffix,
             recursive=args.recursive,
+            invert_mode=args.mode,
         )
         if results:
             print(f"\n处理完毕。成功生成 {len(results)} 个反色图片。")
@@ -194,6 +202,7 @@ def main():
         suffix=args.suffix,
         keep_original=args.keep_original,
         recursive=args.recursive,
+        invert_mode=args.mode,
     )
 
 
