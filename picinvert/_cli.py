@@ -163,9 +163,9 @@ def main():
     )
     parser.add_argument(
         "-m", "--mode",
-        default="hsv",
+        default="black-white",
         choices=["standard", "hsv", "black-white"],
-        help="反色模式: standard=标准RGB反色, hsv=HSV反转明度, black-white=仅反色黑白灰（默认: hsv）",
+        help="反色模式: standard=标准RGB反色, hsv=HSV反转明度, black-white=仅反色黑白灰（默认: black-white）",
     )
 
     args = parser.parse_args()

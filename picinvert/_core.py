@@ -102,7 +102,7 @@ def _invert_black_white(img: Image.Image, threshold: int = 30) -> Image.Image:
     return inverted_rgb
 
 
-def _invert_image(img: Image.Image, invert_mode: str = "hsv") -> Image.Image:
+def _invert_image(img: Image.Image, invert_mode: str = "black-white") -> Image.Image:
     """
     对 PIL Image 对象进行反色处理，返回反色后的 Image 对象。
 
@@ -110,7 +110,7 @@ def _invert_image(img: Image.Image, invert_mode: str = "hsv") -> Image.Image:
     ----------
     img : Image.Image
         要处理的 PIL Image 对象。
-    invert_mode : str, default "hsv"
+    invert_mode : str, default "black-white"
         反色模式。
         - "standard"：标准 RGB 反色（255 - 各通道像素值）
         - "hsv"：HSV 色彩空间下只反转明度（V）通道，保持色相和饱和度不变
@@ -137,7 +137,7 @@ def invert(
     picture_path: Union[str, Path],
     suffix: str = "_inverted",
     output_dir: Optional[Union[str, Path]] = None,
-    invert_mode: str = "hsv",
+    invert_mode: str = "black-white",
 ) -> Path:
     """
     读取目标图片，进行反色处理，按新后缀保存为新图片。
@@ -150,10 +150,11 @@ def invert(
         保存新图片的文件名后缀（添加在扩展名前）。
     output_dir : str or Path or None, default None
         输出目录。为 None 时，输出到源文件所在目录。
-    invert_mode : str, default "hsv"
+    invert_mode : str, default "black-white"
         反色模式。
         - "standard"：标准 RGB 反色（255 - 各通道像素值）
         - "hsv"：HSV 色彩空间下只反转明度（V）通道；保留色相和饱和度
+        - "black-white"：仅反转黑白灰色（低饱和度区域），保留彩色区域不变
 
     Returns
     -------
@@ -200,7 +201,7 @@ def batch_invert(
     folder: Union[str, Path],
     suffix: str = "_converted",
     recursive: bool = False,
-    invert_mode: str = "hsv",
+    invert_mode: str = "black-white",
 ) -> list[Path]:
     """
     扫描文件夹下所有图片文件，跳过文件名以 suffix 结尾的文件，
@@ -220,7 +221,7 @@ def batch_invert(
         输出文件名后缀（添加在扩展名前），同时用于过滤已转换的文件。
     recursive : bool, default False
         是否递归处理子文件夹。
-    invert_mode : str, default "hsv"
+    invert_mode : str, default "black-white"
         反色模式，透传给 _invert_image()。
 
     Returns

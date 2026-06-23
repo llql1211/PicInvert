@@ -23,11 +23,11 @@ picinvert -f ./my_photos
 Options:
 
 |         Flag         |             Description                           |    Default   |
-|----------------------|---------------------------------------------------|--------------|
+|----------------------|---------------------------------------------------|----------------|
 | `-f` / `--folder`    | Target folder path                                |       —      |
 | `-s` / `--suffix`    | Output filename suffix                            | `_converted` |
 | `-r` / `--recursive` | Process subdirectories recursively                |      off     |
-| `-m` / `--mode`      | Invert mode (`standard` / `hsv` / `black-white`)  | `hsv`        |
+| `-m` / `--mode`      | Invert mode (`standard` / `hsv` / `black-white`)  | `black-white` |
 
 Examples:
 
